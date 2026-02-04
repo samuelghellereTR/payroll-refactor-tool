@@ -24,6 +24,8 @@ import java.util.stream.Stream;
 /**
  * Engine principal de refatoração que aplica transformações específicas
  * para código PowerBuilder migrado para Java.
+ * 
+ * VERSÃO ATUALIZADA: Agora remove wrappers Mobilize problemáticos como isTrue().
  */
 public class RefactorEngine {
     
@@ -37,6 +39,7 @@ public class RefactorEngine {
     private final JavaParser javaParser;
     private final PowerBuilderPatternMatcher patternMatcher;
     private final NameConverter nameConverter;
+    private final MobilizeWrapperCleaner wrapperCleaner; // NOVO: Limpeza de wrappers
     
     public RefactorEngine(Path inputDir, Path outputDir, boolean dryRun, 
                          boolean verbose, boolean preserveComments, boolean createBackup) {
@@ -50,10 +53,13 @@ public class RefactorEngine {
         this.javaParser = new JavaParser();
         this.patternMatcher = new PowerBuilderPatternMatcher();
         this.nameConverter = new NameConverter();
+        this.wrapperCleaner = new MobilizeWrapperCleaner(); // NOVO
     }
     
     public RefactorResult execute() throws IOException {
         RefactorResult result = new RefactorResult();
+        
+        System.out.println("🚀 Iniciando refatoração com limpeza de wrappers Mobilize...");
         
         try (Stream<Path> javaFiles = Files.walk(inputDir)
                 .filter(path -> path.toString().endsWith(".java"))) {
@@ -70,6 +76,7 @@ public class RefactorEngine {
             });
         }
         
+        System.out.println("✅ Refatoração concluída!");
         return result;
     }
     
@@ -92,7 +99,17 @@ public class RefactorEngine {
         CompilationUnit cu = parseResult.getResult().get();
         boolean hasChanges = false;
         
-        // Aplica transformações
+        // NOVO: Primeiro remove wrappers Mobilize problemáticos
+        if (verbose) {
+            System.out.println("  🔥 Removendo wrappers Mobilize...");
+        }
+        hasChanges |= wrapperCleaner.cleanMobilizeWrappers(cu);
+        result.addTransformations(wrapperCleaner.getTransformationsCount());
+        
+        // Aplica transformações de nomenclatura
+        if (verbose) {
+            System.out.println("  📝 Refatorando nomenclatura...");
+        }
         hasChanges |= refactorClassNames(cu, result);
         hasChanges |= refactorMethodNames(cu, result);
         hasChanges |= refactorFieldNames(cu, result);
@@ -102,7 +119,18 @@ public class RefactorEngine {
         if (hasChanges) {
             saveRefactoredFile(javaFile, cu, result);
             result.incrementProcessedFiles();
+            
+            if (verbose) {
+                System.out.println("  ✅ Arquivo refatorado com sucesso!");
+            }
+        } else {
+            if (verbose) {
+                System.out.println("  ⏭️  Nenhuma mudança necessária");
+            }
         }
+        
+        // Reset counter para próximo arquivo
+        wrapperCleaner.resetCounter();
     }
     
     private boolean refactorClassNames(CompilationUnit cu, RefactorResult result) {
@@ -120,7 +148,7 @@ public class RefactorEngine {
                     result.incrementTransformations();
                     
                     if (verbose) {
-                        System.out.println("  📝 Classe: " + oldName + " → " + newName);
+                        System.out.println("    📝 Classe: " + oldName + " → " + newName);
                     }
                 }
             }
@@ -144,7 +172,7 @@ public class RefactorEngine {
                     result.incrementTransformations();
                     
                     if (verbose) {
-                        System.out.println("  🔧 Método: " + oldName + " → " + newName);
+                        System.out.println("    🔧 Método: " + oldName + " → " + newName);
                     }
                 }
             }
@@ -162,7 +190,7 @@ public class RefactorEngine {
                         result.incrementTransformations();
                         
                         if (verbose) {
-                            System.out.println("  📋 Parâmetro: " + oldParamName + " → " + newParamName);
+                            System.out.println("    📋 Parâmetro: " + oldParamName + " → " + newParamName);
                         }
                     }
                 }
@@ -188,7 +216,7 @@ public class RefactorEngine {
                         result.incrementTransformations();
                         
                         if (verbose) {
-                            System.out.println("  🏷️  Campo: " + oldName + " → " + newName);
+                            System.out.println("    🏷️  Campo: " + oldName + " → " + newName);
                         }
                     }
                 }
@@ -211,6 +239,10 @@ public class RefactorEngine {
         if (createBackup && !dryRun) {
             Path backupFile = originalFile.resolveSibling(originalFile.getFileName() + ".backup");
             Files.copy(originalFile, backupFile, StandardCopyOption.REPLACE_EXISTING);
+            
+            if (verbose) {
+                System.out.println("    💾 Backup criado: " + backupFile.getFileName());
+            }
         }
         
         // Gera o código refatorado
@@ -234,7 +266,7 @@ public class RefactorEngine {
         }
         
         if (verbose) {
-            System.out.println("  ✅ Salvo: " + originalFile);
+            System.out.println("    💾 Salvo: " + originalFile);
         }
     }
 }
