@@ -11,6 +11,8 @@ import java.util.concurrent.Callable;
 /**
  * Ferramenta CLI para refatoração automática de código PowerBuilder migrado para Java.
  * 
+ * VERSÃO ATUALIZADA: Agora remove wrappers Mobilize problemáticos como isTrue().
+ * 
  * Esta ferramenta identifica padrões específicos do código gerado pela migração
  * PowerBuilder->Java e aplica transformações para melhorar a legibilidade,
  * preservando completamente a lógica de negócio e arquitetura.
@@ -18,8 +20,8 @@ import java.util.concurrent.Callable;
 @Command(
     name = "payroll-refactor", 
     mixinStandardHelpOptions = true,
-    version = "1.0.0",
-    description = "Refatora código PowerBuilder migrado para Java melhorando legibilidade"
+    version = "2.0.0",
+    description = "Refatora código PowerBuilder migrado para Java melhorando legibilidade e removendo wrappers Mobilize"
 )
 public class PayrollRefactorTool implements Callable<Integer> {
 
@@ -48,8 +50,13 @@ public class PayrollRefactorTool implements Callable<Integer> {
 
     @Override
     public Integer call() throws Exception {
-        System.out.println("🔧 Payroll Refactor Tool v1.0.0");
+        System.out.println("🔧 Payroll Refactor Tool v2.0.0");
+        System.out.println("🔥 NOVA VERSÃO: Remove wrappers Mobilize problemáticos!");
         System.out.println("📁 Analisando: " + inputDir);
+        
+        if (dryRun) {
+            System.out.println("🧪 Modo DRY-RUN: Nenhum arquivo será modificado");
+        }
         
         if (outputDir == null) {
             outputDir = inputDir;
@@ -66,16 +73,25 @@ public class PayrollRefactorTool implements Callable<Integer> {
         
         RefactorResult result = engine.execute();
         
-        System.out.println("\n✅ Refatoração concluída!");
-        System.out.println("📊 Arquivos processados: " + result.getProcessedFiles());
-        System.out.println("🔄 Transformações aplicadas: " + result.getTransformationsApplied());
-        System.out.println("⚠️  Avisos: " + result.getWarnings().size());
+        // Usa o novo método getSummary() para output formatado
+        System.out.println("\n" + result.getSummary());
         
-        if (!result.getWarnings().isEmpty()) {
-            System.out.println("\n⚠️  Avisos encontrados:");
-            result.getWarnings().forEach(warning -> 
-                System.out.println("  - " + warning)
-            );
+        if (result.getTransformationsApplied() > 0) {
+            System.out.println("🎉 Transformações principais aplicadas:");
+            System.out.println("  🔥 Wrappers isTrue() removidos");
+            System.out.println("  🧮 Helpers matemáticos simplificados");
+            System.out.println("  📦 Tipos Mobilize convertidos para Java padrão");
+            System.out.println("  📝 Nomenclatura PowerBuilder convertida");
+        }
+        
+        if (!dryRun && result.getProcessedFiles() > 0) {
+            System.out.println("\n💡 Próximos passos:");
+            System.out.println("  1. Compile o código para verificar sintaxe");
+            System.out.println("  2. Execute os testes existentes");
+            System.out.println("  3. Revise as mudanças manualmente");
+            if (createBackup) {
+                System.out.println("  4. Remova arquivos .backup se tudo estiver OK");
+            }
         }
         
         return result.isSuccess() ? 0 : 1;
